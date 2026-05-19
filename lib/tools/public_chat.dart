@@ -18,12 +18,14 @@ class UserProfilePage extends StatefulWidget {
   final String username;
   final String? currentUser;
   final String baseUrl;
+  final String sessionKey; // TAMBAHKAN sessionKey
 
   const UserProfilePage({
     super.key,
     required this.username,
     this.currentUser,
     required this.baseUrl,
+    required this.sessionKey, // TAMBAHKAN
   });
 
   @override
@@ -49,16 +51,19 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _loadUserData() async {
     try {
+      // TAMBAHKAN sessionKey ke URL
       final response = await http.get(
-        Uri.parse("${widget.baseUrl}/get-user-profile?username=${widget.username}"),
+        Uri.parse("${widget.baseUrl}/get-user-profile?username=${widget.username}&key=${widget.sessionKey}"),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           setState(() {
-            _userData = data['user'];
+            _userData = data;
             _isLoading = false;
           });
+        } else {
+          setState(() => _isLoading = false);
         }
       }
     } catch (e) {
@@ -90,6 +95,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         Uri.parse("${widget.baseUrl}/update-profile-picture"),
       );
       request.fields['username'] = widget.username;
+      request.fields['key'] = widget.sessionKey; // TAMBAHKAN sessionKey
       request.files.add(await http.MultipartFile.fromPath('avatar', image.path));
       await request.send();
     }
@@ -103,6 +109,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         body: jsonEncode({
           'username': widget.username,
           'bio': newBio,
+          'key': widget.sessionKey, // TAMBAHKAN sessionKey
         }),
       );
       final data = jsonDecode(response.body);
@@ -112,6 +119,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Bio berhasil diperbarui"), backgroundColor: Colors.green),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['error'] ?? "Gagal update bio"), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -383,7 +394,14 @@ class NotificationService {
 class PublicChatPage extends StatefulWidget {
   final String username;
   final String? role;
-  const PublicChatPage({super.key, required this.username, this.role});
+  final String sessionKey; // TAMBAHKAN sessionKey
+  
+  const PublicChatPage({
+    super.key, 
+    required this.username, 
+    this.role,
+    required this.sessionKey, // TAMBAHKAN
+  });
 
   @override
   State<PublicChatPage> createState() => _PublicChatPageState();
@@ -411,8 +429,6 @@ class _PublicChatPageState extends State<PublicChatPage> with WidgetsBindingObse
   String? _currentPlayingId;
   
   Map<String, dynamic>? _replyTo;
-  
-  final String _adminKey = 'rahasiaadmin123';
   
   final Map<String, String?> _avatarCache = {};
 
@@ -488,6 +504,7 @@ class _PublicChatPageState extends State<PublicChatPage> with WidgetsBindingObse
           username: username,
           currentUser: widget.username,
           baseUrl: baseUrl,
+          sessionKey: widget.sessionKey, // TAMBAHKAN
         ),
       ),
     );
@@ -546,6 +563,8 @@ class _PublicChatPageState extends State<PublicChatPage> with WidgetsBindingObse
       );
       
       request.fields['username'] = widget.username;
+      request.fields['key'] = widget.sessionKey; // TAMBAHKAN sessionKey
+      
       if (text != null && text.isNotEmpty) {
         request.fields['message'] = text;
       }
@@ -576,9 +595,17 @@ class _PublicChatPageState extends State<PublicChatPage> with WidgetsBindingObse
       
       final response = await request.send();
       if (response.statusCode == 200) {
-        _msgController.clear();
-        await _fetchMessages();
-        _scrollToBottom();
+        final responseBody = await response.stream.bytesToString();
+        final data = jsonDecode(responseBody);
+        if (data['success'] == true) {
+          _msgController.clear();
+          await _fetchMessages();
+          _scrollToBottom();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['error'] ?? "Gagal mengirim"), backgroundColor: Colors.red),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -594,7 +621,7 @@ class _PublicChatPageState extends State<PublicChatPage> with WidgetsBindingObse
   Future<void> _deleteMessage(String messageId, {bool forEveryone = false}) async {
     try {
       final url = forEveryone 
-          ? "$baseUrl/delete-public-chat/$messageId?adminKey=$_adminKey"
+          ? "$baseUrl/delete-public-chat/$messageId?adminKey=rahasiaadmin123"
           : "$baseUrl/delete-my-chat/$messageId?username=${widget.username}";
       
       final response = await http.delete(Uri.parse(url));
