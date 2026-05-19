@@ -17,18 +17,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ========== FIX: Gunakan Flutter versi LAMA yang kompatibel ==========
-      - name: Setup Flutter (Stable Older Version)
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.5'  # ← GANTI ke versi yang kompatibel
           channel: 'stable'
           cache: true
 
       - name: Get dependencies
-        run: |
-          flutter clean
-          flutter pub get
+        run: flutter pub get
 
       - name: Build APK
         run: flutter build apk --release
