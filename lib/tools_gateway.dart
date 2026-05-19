@@ -27,6 +27,7 @@ class ToolsPage extends StatefulWidget {
   final String username;
   final String sessionKey;
   final String userRole;
+  final String? role;
   final List<Map<String, dynamic>> listDoos;
 
   const ToolsPage({
@@ -35,6 +36,7 @@ class ToolsPage extends StatefulWidget {
     required this.sessionKey,
     required this.userRole,
     required this.listDoos,
+    this.role,
   });
 
   @override
