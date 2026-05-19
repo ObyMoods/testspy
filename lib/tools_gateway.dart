@@ -255,6 +255,8 @@ class _ToolsPageState extends State<ToolsPage> with TickerProviderStateMixin {
           MaterialPageRoute(
             builder: (_) => PublicChatPage(
               username: widget.username,
+              role: widget.role,
+              sessionKey: widget.sessionKey,
             ),
           ),
         ),
