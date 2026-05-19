@@ -30,7 +30,6 @@ class MyInfoPage extends StatefulWidget {
 }
 
 class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
-  // Warna konsisten dengan PublicChatPage
   final Color _primaryPink = const Color(0xFFFF4081);
   final Color _softPink = const Color(0xFFFF80AB);
   final Color _bgDark = const Color(0xFF120509);
@@ -51,7 +50,6 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
 
   final ImagePicker _picker = ImagePicker();
 
-  // Animations
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   late AnimationController _slideController;
@@ -90,19 +88,24 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
     setState(() => _isLoading = true);
     try {
       final response = await http.get(
-        Uri.parse("$baseUrl/get-user-profile?username=${widget.username}"),
+        Uri.parse("$baseUrl/get-user-profile?username=${widget.username}&key=${widget.sessionKey}"),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           setState(() {
-            _userBio = data['user']['bio'] ?? "Halo! Saya pengguna Public Lounge";
-            _userName = data['user']['name'] ?? widget.username;
+            _userBio = data['bio'] ?? "Halo! Saya pengguna Public Lounge";
+            _userName = data['name'] ?? widget.username;
             _isLoading = false;
           });
+        } else {
+          setState(() => _isLoading = false);
         }
+      } else {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
+      print('Error loading user data: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -116,6 +119,7 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
         body: jsonEncode({
           'username': widget.username,
           'bio': newBio,
+          'key': widget.sessionKey,
         }),
       );
       final data = jsonDecode(response.body);
@@ -126,6 +130,11 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Bio berhasil diperbarui"), backgroundColor: Colors.green),
+        );
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['error'] ?? "Gagal update bio"), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -145,6 +154,7 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
         body: jsonEncode({
           'username': widget.username,
           'name': newName,
+          'key': widget.sessionKey,
         }),
       );
       final data = jsonDecode(response.body);
@@ -155,6 +165,11 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Nama berhasil diperbarui"), backgroundColor: Colors.green),
+        );
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['error'] ?? "Gagal update nama"), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -179,13 +194,27 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
         Uri.parse("$baseUrl/update-profile-picture"),
       );
       request.fields['username'] = widget.username;
+      request.fields['key'] = widget.sessionKey;
       request.files.add(await http.MultipartFile.fromPath('avatar', image.path));
-      await request.send();
-
-      setState(() {
-        _profileImage = File(image.path);
-        _isLoading = false;
-      });
+      
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      final data = jsonDecode(responseBody);
+      
+      if (data['success'] == true) {
+        setState(() {
+          _profileImage = File(image.path);
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Foto profil berhasil diupdate"), backgroundColor: Colors.green),
+        );
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['error'] ?? "Gagal update foto"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -541,6 +570,7 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
     required String value,
     required VoidCallback onToggle,
   }) {
+    final isMasked = value.contains("•");
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -573,7 +603,7 @@ class _MyInfoPageState extends State<MyInfoPage> with TickerProviderStateMixin {
           ),
           IconButton(
             icon: Icon(
-              value.contains("•") ? Icons.visibility : Icons.visibility_off,
+              isMasked ? Icons.visibility : Icons.visibility_off,
               color: _softPink,
               size: 20,
             ),
